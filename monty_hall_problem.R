@@ -1,5 +1,5 @@
 
-# Month Hall Problem
+# Month Hall problem
 # https://en.wikipedia.org/wiki/Monty_Hall_problem
 # https://en.wikipedia.org/wiki/Central_limit_theorem
 
@@ -17,10 +17,23 @@ library(foreach)
 library(doParallel)
 library(snow)
 
+library(knitr)
+library(kableExtra)
+
+# todo
+# make parallel
+# create ouput print level (1-3)
+
 set.seed(42)
 
 theme_set(theme_light(base_size=18))
 
+plot_save <- function(plot, width=980, height=700, text_factor=1, filename='plot.png') {
+  dpi <- text_factor * 100
+  width_calc <- width / dpi
+  height_calc <- height / dpi
+  ggsave(filename = filename, dpi = dpi, width = width_calc, height = height_calc, units = 'in', plot = plot)
+}
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
@@ -64,7 +77,8 @@ for (i in 1:nrow(combos)) {
       if (prize == contestant) {
         stay_wins <- stay_wins + 1
         print('stay wins')
-      } else if (prize == contestant_switch) {
+      }
+      if (prize == contestant_switch) {
         switch_wins <- switch_wins + 1
         print('switch wins')
       }
@@ -79,34 +93,36 @@ for (i in 1:nrow(combos)) {
   }
 }
 
-
 mhp_res
-mhp_res[1:30, ]
-mhp_res_melt <- melt(mhp_res, id.vars='n_round', measure.vars=c('switch_wins', 'stay_wins'))
+
+mhp_res_melt <- melt(mhp_res, id.vars=c('n_rounds', 'n_games', 'n_round'), measure.vars=c('switch_wins', 'stay_wins'))
 mhp_res_melt
-mhp_res_mean <- mhp_res_melt[, .(mean_win=mean(value)), by=variable]
+mhp_res_sum <- mhp_res_melt[order(n_rounds, n_games, variable), .(mean_win=mean(value), sd_win=sd(value)), by=.(n_rounds, n_games, variable)]
+mhp_res_sum
+fwrite(mhp_res_sum, '')
+kable(mhp_res_sum, format='markdown')
+
+ggplot(mhp_res_melt[n_rounds==100 & n_games==10, ], aes(x=value, color=variable)) + 
+  geom_histogram(aes(y=..count..), bins=30, position='identity', fill='white', alpha=.3, binwidth=1, size=1.5)
+
+ggplot(mhp_res_melt[n_rounds==100 & n_games==10, ], aes(x=value, color=variable, fill=variable)) + 
+  geom_histogram(aes(y=..count..), bins=30, position='dodge', binwidth=1, alpha=.3, size=1.5)
 
 
-ggplot(mhp_res_melt, aes(x=value, color=variable)) + 
-  geom_histogram(aes(y=..count..), bins=30, position='identity', fill='white', alpha=.5, binwidth=1, size=1.5)
-
-ggplot(mhp_res_melt, aes(x=value, color=variable, fill=variable)) + 
-  geom_histogram(aes(y=..count..), bins=30, position='dodge', binwidth=1, alpha=.5, size=1.5)
-
-
-ggplot(mhp_res_melt, aes(x=value, color=variable, fill=variable)) + 
+ggplot(mhp_res_melt[n_rounds==100 & n_games==10, ], aes(x=value, color=variable, fill=variable)) + 
   geom_histogram(aes(y=..density..), bins=30, position='dodge', binwidth=1, alpha=.5, size=1.5)
 
-ggplot(mhp_res_melt, aes(x=value, color=variable, fill=variable)) + 
+ggplot(mhp_res_melt[n_rounds==100 & n_games==10, ], aes(x=value, color=variable, fill=variable)) + 
   geom_density(alpha=.1, size=1.5)
 
-
-ggplot(mhp_res_melt, aes(x=value, color=variable, fill=variable)) + 
-  geom_histogram(aes(y=..density..), bins=30, position='identity', alpha=.1, binwidth=1, size=1.25) +
-  geom_density(alpha=.1, size=1.25) + 
-  geom_vline(data=mhp_res_mean, aes(xintercept=mean_win, color=variable), linetype='dashed', size=2) + 
-  labs(title='100 rounds 10 games')
-
+for (i in c(10, 100)) {
+  mhp_plt <- ggplot(mhp_res_melt[n_rounds==100 & n_games==i, ], aes(x=value, color=variable, fill=variable)) + 
+    geom_histogram(aes(y=..density..), bins=30, position='identity', alpha=.1, binwidth=1, size=1.25) +
+    geom_density(alpha=.1, size=1.25) + 
+    geom_vline(data=mhp_res_mean[n_rounds==100 & n_games==i, ], aes(xintercept=mean_win, color=variable), linetype='dashed', size=2) + 
+    labs(title=paste0('100 rounds ', i, ' games'))
+  plot_save(mhp_plt, width=898, height=698, text_factor=1, filename=paste0(''))
+}
 
 
 
